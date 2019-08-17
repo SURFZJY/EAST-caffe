@@ -13,10 +13,8 @@ def train(initmodel, gpu):
     caffe.set_mode_gpu()
     caffe.set_device(gpu)
     solver = caffe.AdamSolver('solver.prototxt')
-    # solver = caffe.SGDSolver('solver.prototxt')
     if initmodel:
         solver.net.copy_from(initmodel)
-
     solver.step(solver.param.max_iter)
 
 if __name__ == '__main__':
@@ -26,7 +24,5 @@ if __name__ == '__main__':
     parser.add_argument("--gpu", required=True, type=int, help="Device ids.")
     args = parser.parse_args()
 
-    if not os.path.isdir('snapshot'):
-        os.makedirs('snapshot')
-
     train(args.initmodel, args.gpu)
+
