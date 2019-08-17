@@ -1,40 +1,60 @@
-## EAST-caffe
+# EAST: An Efficient and Accurate Scene Text Detector
 
-caffe复现EAST算法，mbv2的底层网络结构，改进unet融合模式
+### Introduction
+This is a CAFFE re-implementation of [EAST: An Efficient and Accurate Scene Text Detector](https://arxiv.org/abs/1704.03155v2).
 
-1. 环境要求
+thanks to these project:
 
-- python2.7/ python3+
-- caffe (with python API)
-  - boost 1.69
-  - opencv 3.5
+- https://github.com/argman/EAST
+- https://github.com/YukangWang/TextField
+- https://github.com/chuanqi305/MobileNet-SSD
+
+The features are summarized blow:
+
++ OpenCV_DNN/ CAFFE inference demo
++ Only **RBOX** part is implemented.
++ Use VGG/ MobileNet_v2 as backbone,
++ NCNN/ MNN deploy support, Use NCNN int8 quantization, the model size can be 2M or less. Very suitable for deploy on Mobile devices. 
 
 
+Please cite his [paper](https://arxiv.org/abs/1704.03155v2) if you find this useful.
 
-2. 训练数据准备
+### Contents
+1. [Installation](#installation)
+2. [Download](#download)
+3. [Train](#Train)
+4. [Demo](#demo)
+5. [Test](#train)
+6. [Train](#test)
+7. [Examples](#examples)
 
-ICDAR2015数据格式，按照img和gt分成对应名称为xxx和 xxx的文件夹
+### Installation
+1. Any version of caffe version > 1.0 should be ok. (suggest use the https://github.com/weiliu89/caffe/tree/ssd)
+
+### Download
+1. Models trained on ICDAR 2013 (training set) + ICDAR 2015 (training set): (Todo)
+
+### Train
+If you want to train the model, you should provide the dataset path, in the dataset path, the images and the gt text files should be separated into two filefolders as shown as below:
 
 ```bash
 train_images\   train_gts\   test_images\   test_gts\
 ```
 
-其中gts\中的txt文件格式如下：
+and the gts content format is
 
 ```bash
 x1,y1,x2,y2,x3,y3,x4,y4,recog_results
+and run
 ```
 
-3. Demo演示
+```
+python train.py --gpu 0 --initmodel my_model.caffemodel
+```
 
-4. 训练自己的数据
+If you have more than one gpu, you can pass gpu ids to gpu_list(like --gpu_list=0,1,2,3)
 
-   ```bash
-   python train.py
-   ```
-
-5. 
-
-6. Demo演示
-
-
+### Demo
+```
+python demo.py 
+```
