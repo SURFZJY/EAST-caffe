@@ -8,28 +8,8 @@ import time
 import os
 import numpy as np
 import scipy.optimize
-#import matplotlib.pyplot as plt
-#import matplotlib.patches as Patches
+
 from shapely.geometry import Polygon
-
-#import tensorflow as tf
-
-from data_util import GeneratorEnqueuer
-
-#tf.app.flags.DEFINE_integer('max_image_large_side', 1280,
-#                            'max image size of training')
-#tf.app.flags.DEFINE_integer('max_text_size', 800,
-#                            'if the text in the input image is bigger than this, then we resize'
-#                            'the image according to this')
-#tf.app.flags.DEFINE_integer('min_text_size', 10,
-#                            'if the text size is smaller than this, we ignore it during training')
-#tf.app.flags.DEFINE_float('min_crop_side_ratio', 0.1,
-#                          'when doing random crop from input image, the'
-#                          'min length of min(H, W')
-#tf.app.flags.DEFINE_string('geometry', 'RBOX',
-#                           'which geometry to generate, RBOX or QUAD')
-#
-#FLAGS = tf.app.flags.FLAGS
 
 def get_images(src_dir):
     """
@@ -195,7 +175,7 @@ def shrink_poly(poly, r):
     :return: the shrinked poly
     """
     # shrink ratio
-    R = 0.3
+    R = 0.0
     # find the longer pair
     if np.linalg.norm(poly[0] - poly[1]) + np.linalg.norm(poly[2] - poly[3]) > \
                     np.linalg.norm(poly[0] - poly[3]) + np.linalg.norm(poly[1] - poly[2]):
@@ -609,26 +589,30 @@ def generate_rbox(im_size, polys, tags, min_text_size=10):
         p0_rect, p1_rect, p2_rect, p3_rect = rectange
         for y, x in xy_in_poly:
             point = np.array([x, y], dtype=np.float32)
-            # top
+            
+            # # top
             # geo_map[y, x, 0] = point_dist_to_line(p0_rect, p1_rect, point)
-            geo_map[y, x, 0] = abs(point[1] - p1_rect[1])
-            # right
+            # # right
             # geo_map[y, x, 1] = point_dist_to_line(p1_rect, p2_rect, point)
-            geo_map[y, x, 1] = abs(point[0] - p2_rect[0])
-            # down
+            # # down
             # geo_map[y, x, 2] = point_dist_to_line(p2_rect, p3_rect, point)
-            geo_map[y, x, 2] = abs(point[1] - p3_rect[1])
-            # left
+            # # left
             # geo_map[y, x, 3] = point_dist_to_line(p3_rect, p0_rect, point)
+            
+            geo_map[y, x, 0] = abs(point[1] - p1_rect[1])
+            geo_map[y, x, 1] = abs(point[0] - p2_rect[0])
+            geo_map[y, x, 2] = abs(point[1] - p3_rect[1])
             geo_map[y, x, 3] = abs(point[0] - p0_rect[0])
+
+
             # angle
             geo_map[y, x, 4] = rotate_angle
 
     return score_map, geo_map, training_mask
 
 
-def get_whole_data(input_size=512,
-                   batch_size=32,
+def get_whole_data(input_size = 512,
+                   batch_size = 8,
                    basedir = '',
                    image_list = [],
                    background_ratio=0,
@@ -637,12 +621,11 @@ def get_whole_data(input_size=512,
     """
     Generator.
     """
-   # image_list = np.array(get_images(src_dir))
-  #  print('{} training images in {}'.format(image_list.shape[0], src_dir))
+
     index = np.arange(0, len(image_list))
     while True:
         np.random.shuffle(index)
-#	print(index)
+
         images = []
         image_fns = []
         score_maps = []
@@ -732,15 +715,12 @@ def get_whole_data(input_size=512,
                 g -= 116.78
                 r -= 123.68
                 im = cv2.merge((b,g,r))
-                # cv2.imwrite('image.jpg',im)
+
                 images.append(im[:, :, ::-1])
                 image_fns.append(im_fn)
                 
-                score_map_new = score_map*255
-                geo_map_new = (geo_map[:,:,0]>0)*255
-               
-                # cv2.imwrite('score_map_new.jpg',score_map_new)
-                # cv2.imwrite('geo_map_new.jpg',geo_map_new)
+                score_map_new = score_map * 255
+                geo_map_new = (geo_map[:,:,0] > 0) * 255        
                 
                 score_maps.append(score_map[::4, ::4, np.newaxis].astype(np.float32))
                 geo_maps.append(geo_map[::4, ::4, :].astype(np.float32))
