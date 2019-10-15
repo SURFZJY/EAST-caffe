@@ -590,20 +590,19 @@ def generate_rbox(im_size, polys, tags, min_text_size=10):
         for y, x in xy_in_poly:
             point = np.array([x, y], dtype=np.float32)
             
-            # # top
-            # geo_map[y, x, 0] = point_dist_to_line(p0_rect, p1_rect, point)
-            # # right
-            # geo_map[y, x, 1] = point_dist_to_line(p1_rect, p2_rect, point)
-            # # down
-            # geo_map[y, x, 2] = point_dist_to_line(p2_rect, p3_rect, point)
-            # # left
-            # geo_map[y, x, 3] = point_dist_to_line(p3_rect, p0_rect, point)
+            # top
+            geo_map[y, x, 0] = point_dist_to_line(p0_rect, p1_rect, point)
+            # right
+            geo_map[y, x, 1] = point_dist_to_line(p1_rect, p2_rect, point)
+            # down
+            geo_map[y, x, 2] = point_dist_to_line(p2_rect, p3_rect, point)
+            # left
+            geo_map[y, x, 3] = point_dist_to_line(p3_rect, p0_rect, point)
             
-            geo_map[y, x, 0] = abs(point[1] - p1_rect[1])
-            geo_map[y, x, 1] = abs(point[0] - p2_rect[0])
-            geo_map[y, x, 2] = abs(point[1] - p3_rect[1])
-            geo_map[y, x, 3] = abs(point[0] - p0_rect[0])
-
+            # geo_map[y, x, 0] = abs(point[1] - p1_rect[1])
+            # geo_map[y, x, 1] = abs(point[0] - p2_rect[0])
+            # geo_map[y, x, 2] = abs(point[1] - p3_rect[1])
+            # geo_map[y, x, 3] = abs(point[0] - p0_rect[0])
 
             # angle
             geo_map[y, x, 4] = rotate_angle
