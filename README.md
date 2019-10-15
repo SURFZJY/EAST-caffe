@@ -45,8 +45,9 @@ and the gts content format is
 
 ```bash
 x1,y1,x2,y2,x3,y3,x4,y4,recog_results
-and run
 ```
+
+and run
 
 ```
 python train.py --gpu 0 --initmodel my_model.caffemodel
