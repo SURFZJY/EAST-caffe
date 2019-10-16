@@ -13,7 +13,7 @@ The features are summarized blow:
 
 + OpenCV_DNN/ CAFFE inference demo.
 + Only **RBOX** part is implemented.
-+ Use **MobileNet_v3** as backbone.
++ Use **MobileNet_v3** as backbone. 
 + NCNN/ MNN deploy support, Use NCNN int8 quantization, the model size can be 2M or less. Very suitable for deploy on Mobile devices. 
 
 Please cite his [paper](https://arxiv.org/abs/1704.03155v2) if you find this useful.
