@@ -56,6 +56,13 @@ python train.py --gpu 0 --initmodel my_model.caffemodel
 If you have more than one gpu, you can pass gpu ids to gpu_list(like --gpu_list=0,1,2,3)
 
 ### Demo
+
+You can download the pretrained MobileNetV3 model at https://pan.baidu.com/s/1NZ-nx-zXS6giXUqiVU4NTQ with the extract code 'wn5a'.
+
+And put it into snapshot directory.
+
+Then run
+
 ```
 python demo.py 
 ```
