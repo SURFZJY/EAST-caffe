@@ -34,7 +34,6 @@ class DataLayer(caffe.Layer):
             'idcard': '/home2/surfzjy/data/caffe_east_version'
         }
         self.basedir = datasetDict[self.dataset] + '/train_images'
-        print('self.basedir', self.basedir)
         self.fnLst = os.listdir(self.basedir)
         self.nb_img = len(self.fnLst)
         self.index = np.arange(0, self.nb_img)
