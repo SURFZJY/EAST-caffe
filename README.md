@@ -69,4 +69,8 @@ python demo.py
 
 ### examples
 
+<img src="https://github.com/SURFZJY/EAST-caffe/blob/master/results/a.png" width = "450" height = "300" alt="demo on idcard" >
 
+<img src="https://github.com/SURFZJY/EAST-caffe/blob/master/results/b.png" width = "450" height = "300" alt="demo on idcard" >
+
+<img src="https://github.com/SURFZJY/EAST-caffe/blob/master/results/c.png" width = "450" height = "300" alt="demo on idcard" >
