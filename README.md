@@ -23,9 +23,7 @@ Please cite his [paper](https://arxiv.org/abs/1704.03155v2) if you find this use
 2. [Download](#download)
 3. [Train](#Train)
 4. [Demo](#demo)
-5. [Test](#train)
-6. [Train](#test)
-7. [Examples](#examples)
+5. [Examples](#examples)
 
 ### Installation
 1. Any version of caffe version > 1.0 should be ok. (suggest use the https://github.com/weiliu89/caffe/tree/ssd)
@@ -67,7 +65,7 @@ Then run
 python demo.py 
 ```
 
-### examples
+### Examples
 
 <img src="https://github.com/SURFZJY/EAST-caffe/blob/master/results/a.png" width = "450" height = "300" alt="demo on idcard" >
 
