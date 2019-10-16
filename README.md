@@ -11,11 +11,10 @@ thanks to these project:
 
 The features are summarized blow:
 
-+ OpenCV_DNN/ CAFFE inference demo
++ OpenCV_DNN/ CAFFE inference demo.
 + Only **RBOX** part is implemented.
-+ Use VGG/ MobileNet_v2 as backbone,
++ Use MobileNet_v3 as backbone.
 + NCNN/ MNN deploy support, Use NCNN int8 quantization, the model size can be 2M or less. Very suitable for deploy on Mobile devices. 
-
 
 Please cite his [paper](https://arxiv.org/abs/1704.03155v2) if you find this useful.
 
@@ -30,7 +29,8 @@ Please cite his [paper](https://arxiv.org/abs/1704.03155v2) if you find this use
 
 ### Installation
 1. Any version of caffe version > 1.0 should be ok. (suggest use the https://github.com/weiliu89/caffe/tree/ssd)
-
+2. If the DiceCoefLoss Layer do not support, please recompile caffe with the Dice Coefficient Loss Layer (https://github.com/HolmesShuan/A-Variation-of-Dice-coefficient-Loss-Caffe-Layer) or use python version 'DiceCoefLossLayer' (The comment part in train.protxt) as subsititution.
+ 
 ### Download
 1. Models trained on ICDAR 2013 (training set) + ICDAR 2015 (training set): (Todo)
 
