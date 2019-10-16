@@ -59,10 +59,14 @@ If you have more than one gpu, you can pass gpu ids to gpu_list(like --gpu_list=
 
 You can download the pretrained MobileNetV3 model at https://pan.baidu.com/s/1NZ-nx-zXS6giXUqiVU4NTQ with the extract code 'wn5a'.
 
-And put it into snapshot directory.
+And put it into snapshot directory. The model is trained on idcard dataset with single character annotations.
 
 Then run
 
 ```
 python demo.py 
 ```
+
+### examples
+
+
