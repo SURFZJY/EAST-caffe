@@ -616,7 +616,7 @@ def get_whole_data(input_size = 512,
                    image_list = [],
                    load_index = [0, 1, 2, 3],
                    background_ratio = 0,
-                   random_scale = np.array([0.8, 1, 1.2])):
+                   random_scale = (0.5, 1.5)):
     """
     Generator.
     """
@@ -627,11 +627,13 @@ def get_whole_data(input_size = 512,
         score_maps = []
         geo_maps = []
         training_masks = []
+        # print('======')
         for i in load_index:
             try:
                 im_fn = '{}/{}'.format(basedir, image_list[i])
                 # print(im_fn)
                 im = cv2.imread(im_fn, 1)
+                # print(im.shape)
 
                 h, w, _ = im.shape
                 txt_fn = im_fn.replace('train_images','train_gts').replace(os.path.basename(im_fn).split('.')[1], 'txt')
@@ -644,7 +646,7 @@ def get_whole_data(input_size = 512,
                 # if text_polys.shape[0] == 0:
                 #     continue
                 # random scale this image
-                rd_scale = np.random.choice(random_scale)
+                rd_scale = np.random.uniform(*random_scale)
                 im = cv2.resize(im, dsize=None, fx=rd_scale, fy=rd_scale)
                 text_polys *= rd_scale
                 # random crop a area from image
