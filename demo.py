@@ -16,7 +16,7 @@ parser.add_argument('--input', default='imgs/img_109.jpg',
                     help='Path to input image')
 parser.add_argument('--model_def', default='models/mbv3/deploy.prototxt',
                     help='prototxt file')
-parser.add_argument('--model_weights', default='snapshot/mbv3_iter_53600.caffemodel',
+parser.add_argument('--model_weights', default='snapshot/ic13_iter_53600.caffemodel',
                     help='caffemodel file')   
 parser.add_argument('--thr',type=float, default=0.9,
                     help='Confidence threshold.')
