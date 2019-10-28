@@ -31,7 +31,13 @@ Please cite his [paper](https://arxiv.org/abs/1704.03155v2) if you find this use
 3. The ReLU6 layer implementation can be found in https://github.com/chuanqi305/ssd
  
 ### Download
-1. Models trained on ICDAR 2013 (training set) + ICDAR 2015 (training set): (Todo)
+1. Models trained on ICDAR 2013 (training set) 
+
+https://pan.baidu.com/s/1_daEvvt7ur3FdXVxVKSF9A  ( extract code：krdu ) 
+
+2. Models trained on fake_idcard with single character annotation 
+
+https://pan.baidu.com/s/1KpG7xFPChyJMftAGR2SdYw  ( extract code：m70q )
 
 ### Train
 If you want to train the model, you should provide the dataset path, in the dataset path, the images and the gt text files should be separated into two filefolders as shown as below:
@@ -69,7 +75,3 @@ python demo.py
 ### Examples
 
 <img src="https://github.com/SURFZJY/EAST-caffe/blob/master/results/a.png" width = "450" height = "300" alt="demo on idcard" >
-
-<img src="https://github.com/SURFZJY/EAST-caffe/blob/master/results/b.png" width = "450" height = "300" alt="demo on idcard" >
-
-<img src="https://github.com/SURFZJY/EAST-caffe/blob/master/results/c.png" width = "450" height = "300" alt="demo on idcard" >
