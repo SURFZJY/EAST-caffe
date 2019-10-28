@@ -12,22 +12,20 @@ import argparse
 
 ############ Add argument parser for command line arguments ############
 parser = argparse.ArgumentParser(description='Use this script to run EAST-caffe')
-parser.add_argument('--input', default='imgs/a.png', 
+parser.add_argument('--input', default='imgs/img_109.jpg', 
                     help='Path to input image')
-parser.add_argument('--model_def', default='deploy.prototxt',
+parser.add_argument('--model_def', default='models/mbv3/deploy.prototxt',
                     help='prototxt file')
-parser.add_argument('--model_weights', default='snapshot/mbv3_iter_10900.caffemodel',
-                    help='caffemodel file')                
-parser.add_argument('--height', type=int, default=320,
-                    help='Preprocess input image by resizing to a specific height. It should be multiple by 32.')              
-parser.add_argument('--width', type=int, default=480,
-                    help='Preprocess input image by resizing to a specific width. It should be multiple by 32.') 
-parser.add_argument('--thr',type=float, default=0.8,
+parser.add_argument('--model_weights', default='snapshot/mbv3_iter_53600.caffemodel',
+                    help='caffemodel file')   
+parser.add_argument('--thr',type=float, default=0.9,
                     help='Confidence threshold.')
 parser.add_argument('--nms',type=float, default=0.2,
                     help='Non-maximum suppression threshold.')
-parser.add_argument('--gpu',type=int, default=4,
-                    help='GPU id (dnn-inference API do not need gpu)')                    
+parser.add_argument('--infer', default='dnn',
+                    help='Inference API, dnn or caffe, recommand dnn inference')                     
+parser.add_argument('--gpu',type=int, default=5,
+                    help='GPU id (only set when inference API is caffe)')                    
 args = parser.parse_args()
 
 ############ Utility functions ############
@@ -86,26 +84,52 @@ def decode(scores, geometry, scoreThresh):
     # Return detections and confidences
     return [detections, confidences]
 
+
+def resize_image(im, max_side_len=2400):
+    '''
+    resize image to a size multiple of 32 which is required by the network
+    :param im: the resized image
+    :param max_side_len: limit of max image size to avoid out of memory in gpu
+    :return: the resized image and the resize ratio
+    '''
+    h, w, _ = im.shape
+
+    resize_w = w
+    resize_h = h
+
+    # limit the max side
+    if max(resize_h, resize_w) > max_side_len:
+        ratio = float(max_side_len) / resize_h if resize_h > resize_w else float(max_side_len) / resize_w
+    else:
+        ratio = 1.
+    resize_h = int(resize_h * ratio)
+    resize_w = int(resize_w * ratio)
+
+    resize_h = resize_h if resize_h % 32 == 0 else (resize_h // 32 - 1) * 32
+    resize_w = resize_w if resize_w % 32 == 0 else (resize_w // 32 - 1) * 32
+    resize_h = max(32, resize_h)
+    resize_w = max(32, resize_w)
+    im = cv2.resize(im, (int(resize_w), int(resize_h)))
+
+    ratio_h = resize_h / float(h)
+    ratio_w = resize_w / float(w)
+
+    return im, (ratio_h, ratio_w)
+    
+    
 def main():
     
     # Read and store arguments
     model_def = args.model_def
     model_weights = args.model_weights
-    inpHeight = args.height
-    inpWidth = args.width
     confThreshold = args.thr
     nmsThreshold = args.nms
     input = args.input
+    Inference_API = args.infer
     
-    frame = cv2.imread(input)
-    
-    height_ = frame.shape[0]
-    width_ = frame.shape[1]
-
-    rH = height_ / float(inpHeight)
-    rW = width_ / float(inpWidth)
-    
-    Inference_API = 'dnn'  ## choices=['dnn', 'caffe'], recommand dnn inference
+    im = cv2.imread(input)    
+    im_resized, (rH, rW) = resize_image(im)
+    inpHeight, inpWidth, _ = im_resized.shape
     
     if Inference_API == 'caffe':
         import caffe
@@ -114,42 +138,38 @@ def main():
         gpu = args.gpu
         caffe.set_device(gpu)  # GPU_id pick
         caffe.set_mode_gpu() # gpu mode
-        
-        # caffe.set_mode_cpu() #cpu mode
 
         net = caffe.Net(model_def,      # defines the structure of the model
                         model_weights,  # contains the trained weights
                         caffe.TEST)     # use test mode (e.g., don't perform dropout)
-        # new_shape = [frame.shape[2], frame.shape[0], frame.shape[1]]
-        # net.blobs['image'].reshape(1, *frame.shape)
+        # new_shape = [im.shape[2], im.shape[0], im.shape[1]]
+        # net.blobs['image'].reshape(1, *im.shape)
 
         mu = np.array([103.94, 116.78, 123.68]) # the mean (BGR) pixel values
 
-        transformer = caffe.io.Transformer({'image': net.blobs['image'].data.shape})
-        transformer.set_transpose('image', (2,0,1))  # move image channels to outermost dimension
-        transformer.set_mean('image', mu)            # subtract the dataset-mean value in each channel
-        transformer.set_raw_scale('image', 255)      # rescale from [0, 1] to [0, 255]
-        transformer.set_channel_swap('image', (2,1,0))  # swap channels from RGB to BGR
+        transformer = caffe.io.Transformer({'data': net.blobs['data'].data.shape})
+        transformer.set_transpose('data', (2,0,1))  # move image channels to outermost dimension
+        transformer.set_mean('data', mu)            # subtract the dataset-mean value in each channel
+        transformer.set_raw_scale('data', 255)      # rescale from [0, 1] to [0, 255]
+        transformer.set_channel_swap('data', (2,1,0))  # swap channels from RGB to BGR
 
         image = caffe.io.load_image(input)
-        transformed_image = transformer.preprocess('image', image)
-
+        transformed_image = transformer.preprocess('data', image)
         # copy the image data into the memory allocated for the net
-        net.blobs['image'].data[...] = transformed_image
-
+        net.blobs['data'].data[...] = transformed_image
         ### perform classification
         start = time.time()
         output = net.forward() # forward
         elapsed = (time.time() - start) * 1000
         print("CAFFE Inference time: %.2f ms" % elapsed)
 
-        F_score = output['ScoreMap']
-        F_geometry = output['GeoMap']
+        F_score  = output['f_score']
+        F_geometry = output['geo_concat']
     
     if Inference_API == 'dnn':
-        
+
         net = cv2.dnn.readNet(model_weights, model_def, 'caffe')
-        blob = cv2.dnn.blobFromImage(frame, 1.0, (inpWidth, inpHeight), (123.68, 116.78, 103.94), True, False)
+        blob = cv2.dnn.blobFromImage(im_resized, 1.0, (inpWidth, inpHeight), (123.68, 116.78, 103.94), True, False)
         net.setInput(blob)
         # outs = net.forward(['ScoreMap/score', 'GeoMap'])
         outs = net.forward(['f_score', 'F_geometry'])
@@ -159,29 +179,30 @@ def main():
         F_score = outs[0]
         F_geometry = outs[1]
     
-    # cv2.imwrite('score.png', 255 * np.squeeze(F_score)) ## show the score map
-    
     ## Decode
-    [boxes, confidences] = decode(F_score, F_geometry, confThreshold)
-    
+    boxes, confidences = decode(F_score, F_geometry, confThreshold)
+
     ## standard-NMS
+    print('bbox_number before NMS is %d' % len(boxes))
     indices = cv2.dnn.NMSBoxesRotated(boxes, confidences, confThreshold, nmsThreshold)
+    print('bbox_number after NMS is %d' % len(indices))
 
     ## draw bbox
     for i in indices:
         # get 4 corners of the rotated rect
         vertices = cv2.boxPoints(boxes[i[0]])
+        # print(vertices)
         # scale the bounding box coordinates based on the respective ratios
         for j in range(4):
-            vertices[j][0] *= rW
-            vertices[j][1] *= rH
+            vertices[j][0] /= rW
+            vertices[j][1] /= rH
         for j in range(4):
             p1 = (vertices[j][0], vertices[j][1])
             p2 = (vertices[(j + 1) % 4][0], vertices[(j + 1) % 4][1])
-            cv2.line(frame, p1, p2, (128, 240, 128), 1);
+            cv2.line(im, p1, p2, (128, 240, 128), 3);
     
     save_name = 'results/' + input.split('/')[-1]
-    cv2.imwrite(save_name, frame)
+    cv2.imwrite(save_name, im)
     print('result saved at', save_name)
 
 if __name__ == "__main__":
