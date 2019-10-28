@@ -9,7 +9,7 @@ import os
 import math
 import csv
 
-from icdar import get_whole_data
+from icdar import generator
 
 class DataLayer(caffe.Layer):
 
@@ -26,12 +26,14 @@ class DataLayer(caffe.Layer):
             
         ## set directory for each dataset here
         
-        self.dataset = 'idcard'
+        self.dataset = 'ic13'
         datasetDict = {
             'ic13': '/home1/surfzjy/data/ic13',
             'ic15': '/home1/surfzjy/data/ic15',
             'mlt': '/home1/surfzjy/data/ic17mlt',
-            'idcard': '/home2/surfzjy/data/caffe_east_version'
+            'idcard': '/home2/surfzjy/data/caffe_east_version',
+            'railway': '/home2/surfzjy/data/railway',
+            'tmp_railway': '/home2/surfzjy/data/tmp_railway'
         }
         self.basedir = datasetDict[self.dataset] + '/train_images'
         self.fnLst = os.listdir(self.basedir)
@@ -42,10 +44,9 @@ class DataLayer(caffe.Layer):
 
     def reshape(self, bottom, top):
         # load image, label and weight
-
         self.data, self.score_map, self.geo_map = self.load()
-
-        # reshape tops to fit (leading 1 is for batch dimension)
+        # print(self.data.shape)
+        # reshape tops to fit
         top[0].reshape(*self.data.shape)
         top[1].reshape(*self.score_map.shape)
         top[2].reshape(*self.geo_map.shape)
@@ -62,19 +63,18 @@ class DataLayer(caffe.Layer):
     def load(self):	
         load_index = self.index[self.idx: min((self.idx + self.batch_size), self.nb_img)]
         self.idx += self.batch_size
-        self.idx = min(self.idx, self.nb_img - 1)
-        
-        whole_data = get_whole_data(input_size = self.patch_size,
-                                    batch_size = self.batch_size,
-                                    basedir = self.basedir,
-                                    image_list = self.fnLst,
-                                    load_index = load_index)
-        input_images = (np.array(whole_data[0])).transpose(0,3,1,2)
-        input_score_maps = (np.array(whole_data[2])).transpose(0,3,1,2)
-        input_geo_maps = (np.array(whole_data[3])).transpose(0,3,1,2)
+        if self.idx >= self.nb_img:
+            np.random.shuffle(self.index)
+            self.idx = 0
+        batch_data = generator(input_size = self.patch_size,
+                               basedir = self.basedir,
+                               image_list = self.fnLst,
+                               load_index = load_index)
+        input_images = (np.array(batch_data[0])).transpose(0,3,1,2)
+        input_score_maps = (np.array(batch_data[2])).transpose(0,3,1,2)
+        input_geo_maps = (np.array(batch_data[3])).transpose(0,3,1,2)
 
         return (input_images, input_score_maps, input_geo_maps)     
-
 
 class DiceCoefLossLayer(caffe.Layer):
     """
@@ -134,7 +134,7 @@ class RBoxLossLayer(caffe.Layer):
         # print(bottom[0].data.shape) # N*5*128*128 pred
         # print(bottom[1].data.shape) # N*5*128*128 geo_gt
         # print(bottom[2].data.shape) # N*1*128*128 score_gt
-        if bottom[0].count!=bottom[1].count:
+        if bottom[0].count != bottom[1].count:
             raise Exception("First Two Inputs must have the same dimension.")
         # self.geo_gt = np.zeros_like(bottom[1].data,dtype=np.float32)
         self.score_gt = np.zeros_like(bottom[2].data,dtype=np.float32)
@@ -182,7 +182,4 @@ class RBoxLossLayer(caffe.Layer):
                 
         bottom[0].diff[...] = np.concatenate((self.top_grad1, self.top_grad2, self.top_grad3, self.top_grad4, self.L_theta_grad), axis=1)
         bottom[1].diff[...] = 0
-        bottom[2].diff[...] = 0     
-        
-            
-            
+        bottom[2].diff[...] = 0
