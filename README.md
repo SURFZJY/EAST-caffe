@@ -74,4 +74,4 @@ python demo.py
 
 ### Examples
 
-<img src="https://github.com/SURFZJY/EAST-caffe/blob/master/results/a.png" width = "450" height = "300" alt="demo on idcard" >
+<img src="https://github.com/SURFZJY/EAST-caffe/blob/master/results/img_123.jpg" width = "450" height = "300" alt="demo on ic13" >
