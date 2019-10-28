@@ -36,7 +36,7 @@ def load_annoataion(p):
         reader = csv.reader(f)
         for line in reader:
             
-            label = line[8]
+            label = line[-1]
             
             # strip BOM. \ufeff for python3,  \xef\xbb\bf for python2
             line = [i.strip('\ufeff').strip('\xef\xbb\xbf') for i in line]
@@ -75,7 +75,7 @@ def check_and_validate_polys(polys, tags, xxx_todo_changeme):
     """
     (h, w) = xxx_todo_changeme
     if polys.shape[0] == 0:
-        return np.array(polys),np.array(tags)
+        return np.array(polys), np.array(tags)
 
     polys[:, :, 0] = np.clip(polys[:, :, 0], 0, w - 1)
     polys[:, :, 1] = np.clip(polys[:, :, 1], 0, h - 1)
@@ -99,7 +99,7 @@ def check_and_validate_polys(polys, tags, xxx_todo_changeme):
     return np.array(validated_polys), np.array(validated_tags)
 
 
-def crop_area(im, polys, tags, min_crop_side_ratio=0.1, crop_background=False, max_tries=50):
+def crop_area(im, polys, tags, min_crop_side_ratio=0.1, crop_background=False, max_tries=20):
     """
     make random crop from the input image
     :param im:
@@ -175,7 +175,7 @@ def shrink_poly(poly, r):
     :return: the shrinked poly
     """
     # shrink ratio
-    R = 0.0
+    R = 0.3
     # find the longer pair
     if np.linalg.norm(poly[0] - poly[1]) + np.linalg.norm(poly[2] - poly[3]) > \
                     np.linalg.norm(poly[0] - poly[3]) + np.linalg.norm(poly[1] - poly[2]):
@@ -296,8 +296,7 @@ def rectangle_from_parallelogram(poly):
     :return:
     """
     p0, p1, p2, p3 = poly
-    angle_p0 = np.arccos(np.dot(p1 - p0, p3 - p0) \
-            / (np.linalg.norm(p0 - p1) * np.linalg.norm(p3 - p0)))
+    angle_p0 = np.arccos(np.dot(p1 - p0, p3 - p0) / (np.linalg.norm(p0 - p1) * np.linalg.norm(p3 - p0)))
     if angle_p0 < 0.5 * np.pi:
         if np.linalg.norm(p0 - p1) > np.linalg.norm(p0 - p3):
             # p0 and p2
@@ -610,13 +609,12 @@ def generate_rbox(im_size, polys, tags, min_text_size=10):
     return score_map, geo_map, training_mask
 
 
-def get_whole_data(input_size = 512,
-                   batch_size = 8,
-                   basedir = '',
-                   image_list = [],
-                   load_index = [0, 1, 2, 3],
-                   background_ratio = 0,
-                   random_scale = (0.5, 1.5)):
+def generator(input_size = 512,
+              basedir = '',
+              image_list = [],
+              load_index = [0, 1, 2, 3],
+              background_ratio = 3./8,
+              random_scale = (0.5, 3)):
     """
     Generator.
     """
@@ -627,16 +625,16 @@ def get_whole_data(input_size = 512,
         score_maps = []
         geo_maps = []
         training_masks = []
-        # print('======')
         for i in load_index:
+            # print('i ==', i)
             try:
                 im_fn = '{}/{}'.format(basedir, image_list[i])
-                # print(im_fn)
-                im = cv2.imread(im_fn, 1)
-                # print(im.shape)
+
+                im = cv2.imread(im_fn)
+                # print('im.shape == ', im.shape)
 
                 h, w, _ = im.shape
-                txt_fn = im_fn.replace('train_images','train_gts').replace(os.path.basename(im_fn).split('.')[1], 'txt')
+                txt_fn = im_fn.replace('train_images', 'train_gts').replace(os.path.basename(im_fn).split('.')[1], 'txt')
                 if not os.path.exists(txt_fn):
                     print ('text file {} does not exists'.format(txt_fn))
                     continue
@@ -650,31 +648,47 @@ def get_whole_data(input_size = 512,
                 im = cv2.resize(im, dsize=None, fx=rd_scale, fy=rd_scale)
                 text_polys *= rd_scale
                 # random crop a area from image
-                im, text_polys, text_tags = crop_area(im, text_polys, text_tags, crop_background=False)
-                                                    
-                if text_polys.shape[0] == 0:
-                    continue
-                h, w, _ = im.shape
-                # Pad the image to the training input size or the longer side of image.
-                new_h, new_w, _ = im.shape
-                max_h_w_i = np.max([new_h, new_w, input_size])
-                im_padded = np.zeros((max_h_w_i, max_h_w_i, 3), dtype=np.uint8)
-                im_padded[:new_h, :new_w, :] = im.copy()
-                im = im_padded
+                if np.random.rand() < background_ratio:
+                    # crop background
+                    im, text_polys, text_tags = crop_area(im, text_polys, text_tags, crop_background=True)
+                    if text_polys.shape[0] > 0:
+                        # cannot find background
+                        continue
+                    # pad and resize image
+                    new_h, new_w, _ = im.shape
+                    max_h_w_i = np.max([new_h, new_w, input_size])
+                    im_padded = np.zeros((max_h_w_i, max_h_w_i, 3), dtype=np.uint8)
+                    im_padded[:new_h, :new_w, :] = im.copy()
+                    im = cv2.resize(im_padded, dsize=(input_size, input_size))
+                    score_map = np.zeros((input_size, input_size), dtype=np.uint8)
+                    geo_map_channels = 5
+                    geo_map = np.zeros((input_size, input_size, geo_map_channels), dtype=np.float32)
+                    training_mask = np.ones((input_size, input_size), dtype=np.uint8)
+                else:
+                    im, text_polys, text_tags = crop_area(im, text_polys, text_tags, crop_background=False)                    
+                    if text_polys.shape[0] == 0:
+                        continue
+                    h, w, _ = im.shape
+                    # Pad the image to the training input size or the longer side of image.
+                    new_h, new_w, _ = im.shape
+                    max_h_w_i = np.max([new_h, new_w, input_size])
+                    im_padded = np.zeros((max_h_w_i, max_h_w_i, 3), dtype=np.uint8)
+                    im_padded[:new_h, :new_w, :] = im.copy()
+                    im = im_padded
 
-                # Resize the image to input size.
+                    # Resize the image to input size.
+                        
+                    new_h, new_w, _ = im.shape
+                    resize_h = input_size
+                    resize_w = input_size
+                    im = cv2.resize(im, dsize = (resize_w, resize_h))
                     
-                new_h, new_w, _ = im.shape
-                resize_h = input_size
-                resize_w = input_size
-                im = cv2.resize(im, dsize = (resize_w, resize_h))
-                
-                resize_ratio_3_x = resize_w / float(new_w)
-                resize_ratio_3_y = resize_h / float(new_h)
-                text_polys[:, :, 0] *= resize_ratio_3_x
-                text_polys[:, :, 1] *= resize_ratio_3_y
-                new_h, new_w, _ = im.shape
-                score_map, geo_map, training_mask = generate_rbox((new_h, new_w), text_polys, text_tags)
+                    resize_ratio_3_x = resize_w / float(new_w)
+                    resize_ratio_3_y = resize_h / float(new_h)
+                    text_polys[:, :, 0] *= resize_ratio_3_x
+                    text_polys[:, :, 1] *= resize_ratio_3_y
+                    new_h, new_w, _ = im.shape
+                    score_map, geo_map, training_mask = generate_rbox((new_h, new_w), text_polys, text_tags)
                 
                 im = im.astype(np.float32)
                 b, g, r = cv2.split(im)
@@ -684,73 +698,17 @@ def get_whole_data(input_size = 512,
                 im = cv2.merge((b,g,r))
 
                 images.append(im[:, :, ::-1])
-                image_fns.append(im_fn)
-                
-                score_map_new = score_map * 255
-                geo_map_new = (geo_map[:,:,0] > 0) * 255        
+                image_fns.append(im_fn)       
                 
                 score_maps.append(score_map[::4, ::4, np.newaxis].astype(np.float32))
                 geo_maps.append(geo_map[::4, ::4, :].astype(np.float32))
                 training_masks.append(training_mask[::4, ::4, np.newaxis].astype(np.float32))
                 if len(images) == len(load_index):
                     return images, image_fns, score_maps, geo_maps, training_masks
-
             except Exception as e:
                 import traceback
                 traceback.print_exc()
                 continue
-
-def get_rbox_data(input_size=512,
-              batch_size=32,
-              src_dir = '',
-              basename = '',
-              random_scale=np.array([0.5, 1, 2.0, 3.0])):
-
-    im = cv2.imread('{}/{}.jpg'.format(src_dir, basename))
-
-    h, w, _ = im.shape
-    txt_fn = '{}/{}.txt'.format(src_dir, basename)
-
-    text_polys, text_tags = load_annoataion(txt_fn)
-    text_polys, text_tags = check_and_validate_polys(text_polys, text_tags, (h, w))
-
-    # random scale this image
-    rd_scale = np.random.choice(random_scale)
-    im = cv2.resize(im, dsize=None, fx=rd_scale, fy=rd_scale)
-    text_polys *= rd_scale
-    
-    im, text_polys, text_tags = crop_area(im, \
-                                          text_polys, \
-                                          text_tags, \
-                                          crop_background=False)
-    if text_polys.shape[0] == 0:
-        pass
-    h, w, _ = im.shape
-
-    # Pad the image to the training input size or the longer side of image.
-    new_h, new_w, _ = im.shape
-    max_h_w_i = np.max([new_h, new_w, input_size])
-    im_padded = np.zeros((max_h_w_i, max_h_w_i, 3), dtype=np.uint8)
-    im_padded[:new_h, :new_w, :] = im.copy()
-    im = im_padded
-
-    # Resize the image to input size.
-    new_h, new_w, _ = im.shape
-    resize_h = input_size
-    resize_w = input_size
-    im = cv2.resize(im, dsize = (resize_w, resize_h))
-    resize_ratio_3_x = resize_w / float(new_w)
-    resize_ratio_3_y = resize_h / float(new_h)
-    text_polys[:, :, 0] *= resize_ratio_3_x
-    text_polys[:, :, 1] *= resize_ratio_3_y
-    new_h, new_w, _ = im.shape
-    score_map, geo_map, training_mask = generate_rbox((new_h, new_w), \
-                                                      text_polys, \
-                                                      text_tags)
-    new_score_map = score_map[:, :, np.newaxis].astype(np.int8)
-    im = im[:, :, ::-1].astype(np.float32)
-    
-    return im, new_score_map
 
 if __name__ == '__main__':
     pass
