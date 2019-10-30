@@ -56,7 +56,7 @@ and run
 python train.py --gpu 0 --initmodel my_model.caffemodel
 ```
 
-If you have more than one gpu, you can pass gpu ids to gpu_list(like --gpu_list=0,1,2,3)
+If you have more than one gpu, you can pass gpu ids to gpu_list(like --gpu 0,1,2,3)
 
 ### Demo
 
