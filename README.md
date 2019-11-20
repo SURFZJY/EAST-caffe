@@ -27,6 +27,12 @@ The features are summarized blow:
 1. Any version of caffe version > 1.0 should be ok. (suggest use the https://github.com/weiliu89/caffe/tree/ssd)
 2. If the DiceCoefLoss Layer do not support, please recompile caffe with the Dice Coefficient Loss Layer (https://github.com/HolmesShuan/A-Variation-of-Dice-coefficient-Loss-Caffe-Layer) or use python version 'DiceCoefLossLayer' (The comment part in train.prototxt) as subsititution.
 3. The ReLU6 layer implementation can be found in https://github.com/chuanqi305/ssd
+4. Build geo_map_cython_lib: 
+
+    ```bash
+    cd geo_map_cython_lib
+    sh build_ext.sh
+    ```
  
 ### Download
 1. Models trained on ICDAR 2013 (training set) 
