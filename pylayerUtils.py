@@ -26,13 +26,14 @@ class DataLayer(caffe.Layer):
             
         ## set directory for each dataset here
         
-        self.dataset = 'ic13'
+        self.dataset = 'taxi'
         datasetDict = {
             'ic13': '/home1/surfzjy/data/ic13',
             'ic15': '/home1/surfzjy/data/ic15',
             'mlt': '/home1/surfzjy/data/ic17mlt',
             'idcard': '/home2/surfzjy/data/caffe_east_version',
             'railway': '/home2/surfzjy/data/railway',
+            'taxi': '/home1/surfzjy/data/whole_invoice',
             'tmp_railway': '/home2/surfzjy/data/tmp_railway'
         }
         self.basedir = datasetDict[self.dataset] + '/train_images'
@@ -127,7 +128,7 @@ class RBoxLossLayer(caffe.Layer):
             raise Exception("Need three inputs to compute total Loss.")
         self.batch_size = bottom[1].data.shape[0]
         self.pixel_num = bottom[1].data.shape[2] * bottom[1].data.shape[3]
-        self.ratio = 5.
+        self.ratio = 20.
 
     def reshape(self, bottom, top):
         # check input dimensions match
