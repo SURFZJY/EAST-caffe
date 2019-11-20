@@ -9,18 +9,23 @@ import numpy as np
 import cv2  ## 3.4.5+ or 4.0 +
 import math
 import argparse
+from tqdm import tqdm
 
 ############ Add argument parser for command line arguments ############
 parser = argparse.ArgumentParser(description='Use this script to run EAST-caffe')
-parser.add_argument('--input', default='imgs/img_109.jpg', 
-                    help='Path to input image')
+parser.add_argument('--input', default='imgs/ic15_train/img_896.jpg', 
+                    help='Path to input image for single demo')
+parser.add_argument('--input_dir', default='imgs/ic15_test', 
+                    help='Path to input image for batch demo')
+parser.add_argument('--output_dir', default='results', 
+                    help='Path to input image for batch demo')                         
 parser.add_argument('--model_def', default='models/mbv3/deploy.prototxt',
                     help='prototxt file')
-parser.add_argument('--model_weights', default='snapshot/ic13_iter_53600.caffemodel',
+parser.add_argument('--model_weights', default='snapshot/ic15_iter_32000.caffemodel',
                     help='caffemodel file')   
-parser.add_argument('--thr',type=float, default=0.9,
+parser.add_argument('--thr',type=float, default=0.95,
                     help='Confidence threshold.')
-parser.add_argument('--nms',type=float, default=0.2,
+parser.add_argument('--nms',type=float, default=0.1,
                     help='Non-maximum suppression threshold.')
 parser.add_argument('--infer', default='dnn',
                     help='Inference API, dnn or caffe, recommand dnn inference')                     
@@ -29,6 +34,22 @@ parser.add_argument('--gpu',type=int, default=5,
 args = parser.parse_args()
 
 ############ Utility functions ############
+def get_images(img_path):
+    '''
+    find image files in test data path
+    :return: list of files found
+    '''
+    files = []
+    exts = ['jpg', 'png', 'jpeg', 'JPG']
+    for parent, dirnames, filenames in os.walk(img_path):
+        for filename in filenames:
+            for ext in exts:
+                if filename.endswith(ext):
+                    files.append(os.path.join(parent, filename))
+                    break
+    print('Find {} images'.format(len(files)))
+    return files
+    
 def decode(scores, geometry, scoreThresh):
     detections = []
     confidences = []
@@ -117,19 +138,13 @@ def resize_image(im, max_side_len=2400):
     return im, (ratio_h, ratio_w)
     
     
-def main():
-    
-    # Read and store arguments
-    model_def = args.model_def
-    model_weights = args.model_weights
-    confThreshold = args.thr
-    nmsThreshold = args.nms
-    input = args.input
-    Inference_API = args.infer
+def single_demo(input, output_dir):
     
     im = cv2.imread(input)    
     im_resized, (rH, rW) = resize_image(im)
     inpHeight, inpWidth, _ = im_resized.shape
+    im_name = input.split('/')[-1]
+    txt_name = 'res_' + im_name.split('.')[0] + '.txt'
     
     if Inference_API == 'caffe':
         import caffe
@@ -187,23 +202,54 @@ def main():
     indices = cv2.dnn.NMSBoxesRotated(boxes, confidences, confThreshold, nmsThreshold)
     print('bbox_number after NMS is %d' % len(indices))
 
-    ## draw bbox
-    for i in indices:
-        # get 4 corners of the rotated rect
-        vertices = cv2.boxPoints(boxes[i[0]])
-        # print(vertices)
-        # scale the bounding box coordinates based on the respective ratios
-        for j in range(4):
-            vertices[j][0] /= rW
-            vertices[j][1] /= rH
-        for j in range(4):
-            p1 = (vertices[j][0], vertices[j][1])
-            p2 = (vertices[(j + 1) % 4][0], vertices[(j + 1) % 4][1])
-            cv2.line(im, p1, p2, (128, 240, 128), 3);
+    txt_save_name = os.path.join(output_dir, txt_name)
+    with open(txt_save_name, 'w') as f:
+        ## draw bbox
+        for i in indices:
+            coord = []
+            # get 4 corners of the rotated rect
+            vertices = cv2.boxPoints(boxes[i[0]])
+            # print(vertices)
+            # scale the bounding box coordinates based on the respective ratios
+            for j in range(4):
+                vertices[j][0] /= rW
+                vertices[j][1] /= rH
+                
+            coord.append(int(vertices[1][0]))
+            coord.append(int(vertices[1][1]))
+            coord.append(int(vertices[2][0]))
+            coord.append(int(vertices[2][1]))
+            coord.append(int(vertices[3][0]))
+            coord.append(int(vertices[3][1]))
+            coord.append(int(vertices[0][0]))
+            coord.append(int(vertices[0][1]))
+            txt_line = ','.join(map(str, coord)) + ', RESULT\n'
+            f.write(txt_line)
+            
+            for j in range(4):
+                p1 = (vertices[j][0], vertices[j][1])
+                p2 = (vertices[(j + 1) % 4][0], vertices[(j + 1) % 4][1])
+                cv2.line(im, p1, p2, (128, 240, 128), 2)
     
-    save_name = 'results/' + input.split('/')[-1]
-    cv2.imwrite(save_name, im)
-    print('result saved at', save_name)
+    im_save_name = os.path.join(output_dir, im_name)
+    cv2.imwrite(im_save_name, im)
+    print('result saved at', im_save_name)
+    
+def batch_demo(input_dir, output_dir):
+    imgs = get_images(input_dir)
+    for img in tqdm(imgs):
+        single_demo(img, output_dir)
+
+############ Parse Args ############
+model_def = args.model_def
+model_weights = args.model_weights
+confThreshold = args.thr
+nmsThreshold = args.nms
+input = args.input  ## single demo
+input_dir = args.input_dir  ## batch demo
+output_dir = args.output_dir
+Inference_API = args.infer
 
 if __name__ == "__main__":
-    main()
+    single_demo(input, output_dir)
+    # batch_demo(input_dir, output_dir)
