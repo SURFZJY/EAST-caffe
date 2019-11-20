@@ -27,7 +27,7 @@ The features are summarized blow:
 1. Any version of caffe version > 1.0 should be ok. (suggest use the https://github.com/weiliu89/caffe/tree/ssd)
 2. If the DiceCoefLoss Layer do not support, please recompile caffe with the Dice Coefficient Loss Layer (https://github.com/HolmesShuan/A-Variation-of-Dice-coefficient-Loss-Caffe-Layer) or use python version 'DiceCoefLossLayer' (The comment part in train.prototxt) as subsititution.
 3. The ReLU6 layer implementation can be found in https://github.com/chuanqi305/ssd
-4. Build geo_map_cython_lib: 
+4. Build geo_map_cython_lib ( Accelerate preprocessing in distance calculation)
 
     ```bash
     cd geo_map_cython_lib
