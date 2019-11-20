@@ -33,7 +33,11 @@ The features are summarized blow:
 
 https://pan.baidu.com/s/1_daEvvt7ur3FdXVxVKSF9A  ( extract code：krdu ) 
 
-2. Models trained on fake_idcard with single character annotation 
+2. Models trained on ICDAR 2015 (training set) 
+
+https://pan.baidu.com/s/1DLTJDiRIqihE6ad5uiHEFA  ( extract code：pn0w ) 
+
+3. Models trained on fake_idcard with single character annotation 
 
 https://pan.baidu.com/s/1KpG7xFPChyJMftAGR2SdYw  ( extract code：m70q )
 
