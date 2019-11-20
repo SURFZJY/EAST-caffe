@@ -10,6 +10,7 @@ import numpy as np
 import scipy.optimize
 
 from shapely.geometry import Polygon
+from geo_map_cython_lib import gen_geo_map
 
 def get_images(src_dir):
     """
@@ -51,11 +52,13 @@ def load_annoataion(p):
 
 
 def polygon_area(poly):
-    """
+    '''
     compute area of a polygon
     :param poly:
     :return:
-    """
+    '''
+    poly_ = np.array(poly)
+    assert poly_.shape == (4,2), 'poly shape should be 4,2'
     edge = [
         (poly[1][0] - poly[0][0]) * (poly[1][1] + poly[0][1]),
         (poly[2][0] - poly[1][0]) * (poly[2][1] + poly[1][1]),
@@ -99,7 +102,7 @@ def check_and_validate_polys(polys, tags, xxx_todo_changeme):
     return np.array(validated_polys), np.array(validated_tags)
 
 
-def crop_area(im, polys, tags, min_crop_side_ratio=0.1, crop_background=False, max_tries=20):
+def crop_area(im, polys, tags, min_crop_side_ratio=0.1, crop_background=False, max_tries=50):
     """
     make random crop from the input image
     :param im:
@@ -234,10 +237,16 @@ def shrink_poly(poly, r):
 
 
 def point_dist_to_line(p1, p2, p3):
-    """
-    Compute the distance from p3 to p1-p2
-    """
-    return np.linalg.norm(np.cross(p2 - p1, p1 - p3)) / np.linalg.norm(p2 - p1)
+    # compute the distance from p3 to p1-p2
+    distance = 0
+    try:
+        eps = 1e-5
+        distance = np.linalg.norm(np.cross(p2 - p1, p1 - p3)) /(np.linalg.norm(p2 - p1)+eps)
+    
+    except:
+        print('point dist to line raise Exception')
+    
+    return distance
 
 
 def fit_line(p1, p2):
@@ -586,25 +595,26 @@ def generate_rbox(im_size, polys, tags, min_text_size=10):
         rectange, rotate_angle = sort_rectangle(rectange)
 
         p0_rect, p1_rect, p2_rect, p3_rect = rectange
-        for y, x in xy_in_poly:
-            point = np.array([x, y], dtype=np.float32)
+        # for y, x in xy_in_poly:
+            # point = np.array([x, y], dtype=np.float32)
             
-            # top
-            geo_map[y, x, 0] = point_dist_to_line(p0_rect, p1_rect, point)
-            # right
-            geo_map[y, x, 1] = point_dist_to_line(p1_rect, p2_rect, point)
-            # down
-            geo_map[y, x, 2] = point_dist_to_line(p2_rect, p3_rect, point)
-            # left
-            geo_map[y, x, 3] = point_dist_to_line(p3_rect, p0_rect, point)
+            # # top
+            # geo_map[y, x, 0] = point_dist_to_line(p0_rect, p1_rect, point)
+            # # right
+            # geo_map[y, x, 1] = point_dist_to_line(p1_rect, p2_rect, point)
+            # # down
+            # geo_map[y, x, 2] = point_dist_to_line(p2_rect, p3_rect, point)
+            # # left
+            # geo_map[y, x, 3] = point_dist_to_line(p3_rect, p0_rect, point)
             
-            # geo_map[y, x, 0] = abs(point[1] - p1_rect[1])
-            # geo_map[y, x, 1] = abs(point[0] - p2_rect[0])
-            # geo_map[y, x, 2] = abs(point[1] - p3_rect[1])
-            # geo_map[y, x, 3] = abs(point[0] - p0_rect[0])
+            # # geo_map[y, x, 0] = abs(point[1] - p1_rect[1])
+            # # geo_map[y, x, 1] = abs(point[0] - p2_rect[0])
+            # # geo_map[y, x, 2] = abs(point[1] - p3_rect[1])
+            # # geo_map[y, x, 3] = abs(point[0] - p0_rect[0])
 
-            # angle
-            geo_map[y, x, 4] = rotate_angle
+            # # angle
+            # geo_map[y, x, 4] = rotate_angle
+        gen_geo_map.gen_geo_map(geo_map, xy_in_poly, rectange, rotate_angle) ## 用cython编写预处理，实现加速
 
     return score_map, geo_map, training_mask
 
@@ -614,7 +624,7 @@ def generator(input_size = 512,
               image_list = [],
               load_index = [0, 1, 2, 3],
               background_ratio = 3./8,
-              random_scale = (0.5, 3)):
+              random_scale = (0.5, 3.0)):
     """
     Generator.
     """
