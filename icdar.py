@@ -32,7 +32,7 @@ def load_annotation(p):
     text_polys = []
     text_tags = []
     if not os.path.exists(p):
-        return np.array(text_polys, dtype=np.float32)
+        return np.array(text_polys, dtype=np.float32), np.array(text_tags, dtype=np.bool_)
     with open(p, 'r') as f:
         reader = csv.reader(f)
         for line in reader:
@@ -624,8 +624,10 @@ def generator(input_size = 512,
     """
     Generator.
     """
-    while True:
-        # np.random.shuffle(index)
+    max_tries = len(load_index) * 10
+    attempt = 0
+    while attempt < max_tries:
+        attempt += 1
         images = []
         image_fns = []
         score_maps = []
@@ -717,6 +719,8 @@ def generator(input_size = 512,
                 import traceback
                 traceback.print_exc()
                 continue
+
+    raise RuntimeError('generator failed to produce a batch after {} attempts'.format(max_tries))
 
 if __name__ == '__main__':
     pass
