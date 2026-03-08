@@ -28,7 +28,7 @@ python demo.py --input imgs/img_123.jpg --infer caffe --gpu 0
 | `demo.py` | Inference script (single image or batch) |
 | `icdar.py` | Data loading, augmentation, and geometry map generation |
 | `pylayerUtils.py` | Custom Python layers: `DataLayer`, `DiceCoefLossLayer`, `RBoxLossLayer` |
-| `solver.prototxt` | Caffe solver config (Adam, lr=0.001, 200K iterations) |
+| `solver.prototxt` | Caffe solver config (Adam, lr=0.001 with step decay, 200K iterations) |
 | `models/mbv3/train.prototxt` | MobileNet V3 training network definition |
 | `models/mbv3/deploy.prototxt` | MobileNet V3 deployment network definition |
 | `models/vgg/train.prototxt` | VGG-16 training network definition |

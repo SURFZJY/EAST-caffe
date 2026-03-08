@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 
+import ast
+
 import caffe
 import numpy as np
 import cv2
@@ -15,7 +17,7 @@ class DataLayer(caffe.Layer):
 
     def setup(self, bottom, top):
         # data layer config
-        params = eval(self.param_str)
+        params = ast.literal_eval(self.param_str)
         self.patch_size = 512
         self.batch_size = int(params['batch_size'])
 
@@ -74,6 +76,10 @@ class DataLayer(caffe.Layer):
         input_images = (np.array(batch_data[0])).transpose(0,3,1,2)
         input_score_maps = (np.array(batch_data[2])).transpose(0,3,1,2)
         input_geo_maps = (np.array(batch_data[3])).transpose(0,3,1,2)
+        # Apply training_mask to score_map to ignore '###' (don't care)
+        # regions and small text during training, as per the EAST paper.
+        input_training_masks = (np.array(batch_data[4])).transpose(0,3,1,2)
+        input_score_maps = input_score_maps * input_training_masks
 
         return (input_images, input_score_maps, input_geo_maps)     
 
