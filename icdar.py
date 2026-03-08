@@ -23,8 +23,8 @@ def get_images(src_dir):
     return files
 
 
-def load_annoataion(p):
-    """ 
+def load_annotation(p):
+    """
     load annotation from the text file
     :param p:
     :return:
@@ -32,7 +32,7 @@ def load_annoataion(p):
     text_polys = []
     text_tags = []
     if not os.path.exists(p):
-        return np.array(text_polys, dtype=np.float32)
+        return np.array(text_polys, dtype=np.float32), np.array(text_tags, dtype=np.bool_)
     with open(p, 'r') as f:
         reader = csv.reader(f)
         for line in reader:
@@ -48,7 +48,7 @@ def load_annoataion(p):
                 text_tags.append(True)
             else:
                 text_tags.append(False)
-        return np.array(text_polys, dtype=np.float32), np.array(text_tags, dtype=np.bool)
+        return np.array(text_polys, dtype=np.float32), np.array(text_tags, dtype=np.bool_)
 
 
 def polygon_area(poly):
@@ -68,15 +68,16 @@ def polygon_area(poly):
     return np.sum(edge) / 2.
 
 
-def check_and_validate_polys(polys, tags, xxx_todo_changeme):
+def check_and_validate_polys(polys, tags, size):
     """
     check so that the text poly is in the same direction,
     and also filter some invalid polygons
     :param polys:
     :param tags:
+    :param size: (h, w) tuple of image dimensions
     :return:
     """
-    (h, w) = xxx_todo_changeme
+    (h, w) = size
     if polys.shape[0] == 0:
         return np.array(polys), np.array(tags)
 
@@ -238,22 +239,17 @@ def shrink_poly(poly, r):
 
 def point_dist_to_line(p1, p2, p3):
     # compute the distance from p3 to p1-p2
-    distance = 0
-    try:
-        eps = 1e-5
-        distance = np.linalg.norm(np.cross(p2 - p1, p1 - p3)) /(np.linalg.norm(p2 - p1)+eps)
-    
-    except:
-        print('point dist to line raise Exception')
-    
-    return distance
+    eps = 1e-5
+    return np.linalg.norm(np.cross(p2 - p1, p1 - p3)) / (np.linalg.norm(p2 - p1) + eps)
 
 
 def fit_line(p1, p2):
     """
     Fit a line ax+by+c = 0
+    :param p1: x-coordinates of two points [x1, x2]
+    :param p2: y-coordinates of two points [y1, y2]
     """
-    if p1[0] == p1[1]:
+    if p1[0] == p2[0]:
         return [1., 0., -p1[0]]
     else:
         [k, b] = np.polyfit(p1, p2, deg=1)
@@ -628,8 +624,10 @@ def generator(input_size = 512,
     """
     Generator.
     """
-    while True:
-        # np.random.shuffle(index)
+    max_tries = len(load_index) * 10
+    attempt = 0
+    while attempt < max_tries:
+        attempt += 1
         images = []
         image_fns = []
         score_maps = []
@@ -644,12 +642,14 @@ def generator(input_size = 512,
                 # print('im.shape == ', im.shape)
 
                 h, w, _ = im.shape
-                txt_fn = im_fn.replace('train_images', 'train_gts').replace(os.path.basename(im_fn).split('.')[1], 'txt')
+                gt_dir = os.path.dirname(im_fn).replace('train_images', 'train_gts')
+                base_name = os.path.splitext(os.path.basename(im_fn))[0]
+                txt_fn = os.path.join(gt_dir, base_name + '.txt')
                 if not os.path.exists(txt_fn):
-                    print ('text file {} does not exists'.format(txt_fn))
+                    print('text file {} does not exists'.format(txt_fn))
                     continue
 
-                text_polys, text_tags = load_annoataion(txt_fn)    
+                text_polys, text_tags = load_annotation(txt_fn)    
                 text_polys, text_tags = check_and_validate_polys(text_polys, text_tags, (h, w))
                 # if text_polys.shape[0] == 0:
                 #     continue
@@ -719,6 +719,8 @@ def generator(input_size = 512,
                 import traceback
                 traceback.print_exc()
                 continue
+
+    raise RuntimeError('generator failed to produce a batch after {} attempts'.format(max_tries))
 
 if __name__ == '__main__':
     pass

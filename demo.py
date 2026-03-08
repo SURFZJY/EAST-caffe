@@ -13,24 +13,24 @@ from tqdm import tqdm
 
 ############ Add argument parser for command line arguments ############
 parser = argparse.ArgumentParser(description='Use this script to run EAST-caffe')
-parser.add_argument('--input', default='imgs/ic15_train/img_896.jpg', 
+parser.add_argument('--input', default='imgs/ic15_train/img_896.jpg',
                     help='Path to input image for single demo')
-parser.add_argument('--input_dir', default='imgs/ic15_test', 
-                    help='Path to input image for batch demo')
-parser.add_argument('--output_dir', default='results', 
-                    help='Path to input image for batch demo')                         
+parser.add_argument('--input_dir', default='imgs/ic15_test',
+                    help='Path to input directory for batch demo')
+parser.add_argument('--output_dir', default='results',
+                    help='Path to output directory')
 parser.add_argument('--model_def', default='models/mbv3/deploy.prototxt',
                     help='prototxt file')
 parser.add_argument('--model_weights', default='snapshot/ic15_iter_32000.caffemodel',
-                    help='caffemodel file')   
+                    help='caffemodel file')
 parser.add_argument('--thr',type=float, default=0.95,
                     help='Confidence threshold.')
 parser.add_argument('--nms',type=float, default=0.1,
                     help='Non-maximum suppression threshold.')
 parser.add_argument('--infer', default='dnn',
-                    help='Inference API, dnn or caffe, recommand dnn inference')                     
-parser.add_argument('--gpu',type=int, default=5,
-                    help='GPU id (only set when inference API is caffe)')                    
+                    help='Inference API, dnn or caffe, recommend dnn inference')
+parser.add_argument('--gpu',type=int, default=0,
+                    help='GPU id (only set when inference API is caffe)')
 args = parser.parse_args()
 
 ############ Utility functions ############
@@ -49,7 +49,7 @@ def get_images(img_path):
                     break
     print('Find {} images'.format(len(files)))
     return files
-    
+
 def decode(scores, geometry, scoreThresh):
     detections = []
     confidences = []
@@ -126,8 +126,8 @@ def resize_image(im, max_side_len=2400):
     resize_h = int(resize_h * ratio)
     resize_w = int(resize_w * ratio)
 
-    resize_h = resize_h if resize_h % 32 == 0 else (resize_h // 32 - 1) * 32
-    resize_w = resize_w if resize_w % 32 == 0 else (resize_w // 32 - 1) * 32
+    resize_h = resize_h if resize_h % 32 == 0 else (resize_h // 32) * 32
+    resize_w = resize_w if resize_w % 32 == 0 else (resize_w // 32) * 32
     resize_h = max(32, resize_h)
     resize_w = max(32, resize_w)
     im = cv2.resize(im, (int(resize_w), int(resize_h)))
@@ -136,85 +136,106 @@ def resize_image(im, max_side_len=2400):
     ratio_w = resize_w / float(w)
 
     return im, (ratio_h, ratio_w)
-    
-    
-def single_demo(input, output_dir):
-    
-    im = cv2.imread(input)    
-    im_resized, (rH, rW) = resize_image(im)
+
+
+def load_model(model_def, model_weights, infer_api, gpu=0):
+    """
+    Load model once and return the net object.
+    """
+    if infer_api == 'caffe':
+        import caffe
+        caffe.set_device(gpu)
+        caffe.set_mode_gpu()
+        net = caffe.Net(model_def, model_weights, caffe.TEST)
+        return net
+    else:
+        net = cv2.dnn.readNet(model_weights, model_def, 'caffe')
+        return net
+
+
+def run_inference(net, im_resized, infer_api):
+    """
+    Run forward pass and return score map and geometry map.
+    """
     inpHeight, inpWidth, _ = im_resized.shape
-    im_name = input.split('/')[-1]
-    txt_name = 'res_' + im_name.split('.')[0] + '.txt'
-    
-    if Inference_API == 'caffe':
+
+    if infer_api == 'caffe':
         import caffe
         import time
-        
-        gpu = args.gpu
-        caffe.set_device(gpu)  # GPU_id pick
-        caffe.set_mode_gpu() # gpu mode
-
-        net = caffe.Net(model_def,      # defines the structure of the model
-                        model_weights,  # contains the trained weights
-                        caffe.TEST)     # use test mode (e.g., don't perform dropout)
-        # new_shape = [im.shape[2], im.shape[0], im.shape[1]]
-        # net.blobs['image'].reshape(1, *im.shape)
-
-        mu = np.array([103.94, 116.78, 123.68]) # the mean (BGR) pixel values
+        # Training uses RGB channel order with RGB mean subtraction,
+        # so inference must match: load as RGB, subtract RGB mean, no channel swap.
+        mu = np.array([123.68, 116.78, 103.94])  # RGB mean values
 
         transformer = caffe.io.Transformer({'data': net.blobs['data'].data.shape})
-        transformer.set_transpose('data', (2,0,1))  # move image channels to outermost dimension
-        transformer.set_mean('data', mu)            # subtract the dataset-mean value in each channel
-        transformer.set_raw_scale('data', 255)      # rescale from [0, 1] to [0, 255]
-        transformer.set_channel_swap('data', (2,1,0))  # swap channels from RGB to BGR
+        transformer.set_transpose('data', (2, 0, 1))  # HWC -> CHW
+        transformer.set_mean('data', mu)
+        transformer.set_raw_scale('data', 255)         # rescale from [0, 1] to [0, 255]
+        # NOTE: no set_channel_swap — caffe.io.load_image returns RGB,
+        # and training feeds RGB to the network.
 
-        image = caffe.io.load_image(input)
+        # Convert BGR (OpenCV) to RGB for caffe.io.Transformer
+        image = im_resized[:, :, ::-1].astype(np.float32) / 255.0
         transformed_image = transformer.preprocess('data', image)
-        # copy the image data into the memory allocated for the net
+        net.blobs['data'].reshape(1, *transformed_image.shape)
         net.blobs['data'].data[...] = transformed_image
-        ### perform classification
+
         start = time.time()
-        output = net.forward() # forward
+        output = net.forward()
         elapsed = (time.time() - start) * 1000
         print("CAFFE Inference time: %.2f ms" % elapsed)
 
-        F_score  = output['f_score']
+        F_score = output['f_score']
         F_geometry = output['geo_concat']
-    
-    if Inference_API == 'dnn':
 
-        net = cv2.dnn.readNet(model_weights, model_def, 'caffe')
-        blob = cv2.dnn.blobFromImage(im_resized, 1.0, (inpWidth, inpHeight), (123.68, 116.78, 103.94), True, False)
+    else:  # dnn
+        blob = cv2.dnn.blobFromImage(im_resized, 1.0, (inpWidth, inpHeight),
+                                     (123.68, 116.78, 103.94), True, False)
         net.setInput(blob)
-        # outs = net.forward(['ScoreMap/score', 'GeoMap'])
         outs = net.forward(['f_score', 'F_geometry'])
         t, _ = net.getPerfProfile()
         print('OPENCV-DNN Inference time: %.2f ms' % (t * 1000.0 / cv2.getTickFrequency()))
 
         F_score = outs[0]
         F_geometry = outs[1]
-    
+
+    return F_score, F_geometry
+
+
+def single_demo(net, input_path, output_dir, conf_thresh, nms_thresh, infer_api):
+
+    im = cv2.imread(input_path)
+    if im is None:
+        print('Failed to read image: {}'.format(input_path))
+        return
+
+    im_resized, (rH, rW) = resize_image(im)
+    im_name = os.path.basename(input_path)
+    txt_name = 'res_' + os.path.splitext(im_name)[0] + '.txt'
+
+    F_score, F_geometry = run_inference(net, im_resized, infer_api)
+
     ## Decode
-    boxes, confidences = decode(F_score, F_geometry, confThreshold)
+    boxes, confidences = decode(F_score, F_geometry, conf_thresh)
 
     ## standard-NMS
     print('bbox_number before NMS is %d' % len(boxes))
-    indices = cv2.dnn.NMSBoxesRotated(boxes, confidences, confThreshold, nmsThreshold)
+    indices = cv2.dnn.NMSBoxesRotated(boxes, confidences, conf_thresh, nms_thresh)
     print('bbox_number after NMS is %d' % len(indices))
 
     txt_save_name = os.path.join(output_dir, txt_name)
     with open(txt_save_name, 'w') as f:
         ## draw bbox
         for i in indices:
-            coord = []
+            # Handle both old (list of lists) and new (flat array) OpenCV NMS output
+            idx = i[0] if isinstance(i, (list, np.ndarray)) else int(i)
             # get 4 corners of the rotated rect
-            vertices = cv2.boxPoints(boxes[i[0]])
-            # print(vertices)
+            vertices = cv2.boxPoints(boxes[idx])
             # scale the bounding box coordinates based on the respective ratios
             for j in range(4):
                 vertices[j][0] /= rW
                 vertices[j][1] /= rH
-                
+
+            coord = []
             coord.append(int(vertices[1][0]))
             coord.append(int(vertices[1][1]))
             coord.append(int(vertices[2][0]))
@@ -225,31 +246,31 @@ def single_demo(input, output_dir):
             coord.append(int(vertices[0][1]))
             txt_line = ','.join(map(str, coord)) + ', RESULT\n'
             f.write(txt_line)
-            
+
             for j in range(4):
-                p1 = (vertices[j][0], vertices[j][1])
-                p2 = (vertices[(j + 1) % 4][0], vertices[(j + 1) % 4][1])
+                p1 = (int(vertices[j][0]), int(vertices[j][1]))
+                p2 = (int(vertices[(j + 1) % 4][0]), int(vertices[(j + 1) % 4][1]))
                 cv2.line(im, p1, p2, (128, 240, 128), 2)
-    
+
     im_save_name = os.path.join(output_dir, im_name)
     cv2.imwrite(im_save_name, im)
     print('result saved at', im_save_name)
-    
-def batch_demo(input_dir, output_dir):
+
+def batch_demo(net, input_dir, output_dir, conf_thresh, nms_thresh, infer_api):
     imgs = get_images(input_dir)
     for img in tqdm(imgs):
-        single_demo(img, output_dir)
+        single_demo(net, img, output_dir, conf_thresh, nms_thresh, infer_api)
 
-############ Parse Args ############
-model_def = args.model_def
-model_weights = args.model_weights
-confThreshold = args.thr
-nmsThreshold = args.nms
-input = args.input  ## single demo
-input_dir = args.input_dir  ## batch demo
-output_dir = args.output_dir
-Inference_API = args.infer
 
 if __name__ == "__main__":
-    single_demo(input, output_dir)
-    # batch_demo(input_dir, output_dir)
+    model_def = args.model_def
+    model_weights = args.model_weights
+    confThreshold = args.thr
+    nmsThreshold = args.nms
+    Inference_API = args.infer
+
+    os.makedirs(args.output_dir, exist_ok=True)
+
+    net = load_model(model_def, model_weights, Inference_API, args.gpu)
+    single_demo(net, args.input, args.output_dir, confThreshold, nmsThreshold, Inference_API)
+    # batch_demo(net, args.input_dir, args.output_dir, confThreshold, nmsThreshold, Inference_API)
